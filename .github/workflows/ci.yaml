@@ -24,11 +24,27 @@ jobs:
       - name: Login to GHCR
         run: echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-      - name: Build & push image with Buildpacks (Spring Boot plugin)
+      - name: Build with Buildpacks (default version tag)
+        run: ./mvnw -B -DskipTests package spring-boot:build-image
+
+      - name: Discover built version
+        id: ver
         run: |
-          ./mvnw -B -DskipTests package spring-boot:build-image \
-            -Dspring-boot.build-image.imageName=ghcr.io/hello-world-argocd-org/hello-world:${{ github.sha }}
-          # also tag latest
-          docker tag ghcr.io/hello-world-argocd-org/hello-world:${{ github.sha }} ghcr.io/hello-world-argocd-org/hello-world:latest
-          docker push ghcr.io/hello-world-argocd-org/hello-world:${{ github.sha }}
-          docker push ghcr.io/hello-world-argocd-org/hello-world:latest
+          ver=$(./mvnw -q -DforceStdout help:evaluate -Dexpression=project.version)
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+
+      - name: Tag & push
+        run: |
+          SRC_TAG=ghcr.io/hello-world-argocd-org/hello-world:${{ steps.ver.outputs.version }}
+          SHA_TAG=ghcr.io/hello-world-argocd-org/hello-world:${{ github.sha }}
+          LATEST_TAG=ghcr.io/hello-world-argocd-org/hello-world:latest
+          
+          # Make sure we’re logged in
+          echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          
+          # Re-tag and push
+          docker tag "$SRC_TAG" "$SHA_TAG"
+          docker push "$SHA_TAG"
+          
+          docker tag "$SRC_TAG" "$LATEST_TAG"
+          docker push "$LATEST_TAG"
