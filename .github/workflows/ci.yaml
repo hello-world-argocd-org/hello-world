@@ -43,6 +43,8 @@ jobs:
           echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           
           # Re-tag and push
+          docker push "$SRC_TAG"
+          
           docker tag "$SRC_TAG" "$SHA_TAG"
           docker push "$SHA_TAG"
           
